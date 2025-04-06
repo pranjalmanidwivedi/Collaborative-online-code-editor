@@ -48,6 +48,7 @@
     "rehype-highlight": "^7.0.2",
     "socket.io-client": "^4.8.0",
     "tailwind-merge": "^2.5.4",
+    "tailwind-scrollbar-hide": "^2.0.0",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^10.0.0",
     "vite-plugin-monaco-editor": "^1.1.0"
