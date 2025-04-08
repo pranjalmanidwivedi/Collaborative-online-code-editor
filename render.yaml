@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: codebridge
+    env: docker
+    repo: https://github.com/pranjalmanidwivedi/Collaborative-online-code-editor
+    region: oregon
+    plan: free
+    branch: main
+    dockerComposeFilePath: docker-compose.yml
+    autoDeploy: true
