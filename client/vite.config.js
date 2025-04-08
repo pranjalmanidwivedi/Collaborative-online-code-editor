@@ -10,4 +10,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // vite.config.js
+server: {
+  proxy: {
+    '/socket.io': {
+      target: 'http://localhost:3005',
+      ws: true
+    }
+  }
+}
+
 })

@@ -1,0 +1,17 @@
+services:
+  python-executor:
+    build:
+      context: ./docker/codebridge-python
+      dockerfile: Dockerfile
+
+  java-executor:
+    build:
+      context: ./docker/codebridge-java
+      dockerfile: Dockerfile
+
+  cpp-executor:
+    build:
+      context: ./docker/codebridge-cpp
+      dockerfile: Dockerfile
+
+  

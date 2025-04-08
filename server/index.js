@@ -40,7 +40,12 @@ app.get("/", (req, res) => {
 app.use("/ai", aiRoutes);
 
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+      origin: "*", // Or specify the exact origin
+      methods: ["GET", "POST"]
+    }
+  });
 
 const userSocketMap = {};
 
