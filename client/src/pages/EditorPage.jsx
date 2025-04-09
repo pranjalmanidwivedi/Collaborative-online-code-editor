@@ -66,8 +66,6 @@ export default function EditorPage() {
 
       setUsername(location.state.username);
       socketRef.current = await initSocket();
-      socketRef.current.on("connect-error", (err) => handleError(err));
-      socketRef.current.on("connect_failed", (err) => handleError(err));
 
       const handleError = (e) => {
         console.log("connect_error", e);
@@ -78,6 +76,9 @@ export default function EditorPage() {
         });
         navigate("/create-room");
       };
+
+      socketRef.current.on("connect-error", handleError);
+      socketRef.current.on("connect_failed", handleError);
 
       socketRef.current.emit("join", {
         roomId,
@@ -93,15 +94,22 @@ export default function EditorPage() {
           });
         }
         setMembers(clients);
+      });
 
-        socketRef.current.on("sync-code", ({ code }) => {
-          if (code !== null) {
-            codeRef.current = code;
-            if (editorRef.current) {
-              editorRef.current.setValue(code);
-            }
-          }
+      // ✅ When someone asks for code, send it
+      socketRef.current.on("request-code-sync", ({ socketId }) => {
+        socketRef.current.emit("sync-code", {
+          code: codeRef.current,
+          socketId,
         });
+      });
+
+      // ✅ When I join, someone will send me the latest code
+      socketRef.current.on("sync-code", ({ code }) => {
+        if (code !== null && editorRef.current) {
+          codeRef.current = code;
+          editorRef.current.setValue(code);
+        }
       });
 
       socketRef.current.on("disconnected", ({ socketId, username }) => {
@@ -124,6 +132,7 @@ export default function EditorPage() {
         socketRef.current.off("joined");
         socketRef.current.off("disconnected");
         socketRef.current.off("sync-code");
+        socketRef.current.off("request-code-sync");
       }
     };
   }, []);
@@ -160,14 +169,11 @@ export default function EditorPage() {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/compile`,
-        {
-          code: editorRef.current.getValue(),
-          language,
-          socketId: socketRef.current.id,
-        }
-      );
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/compile`, {
+        code: editorRef.current.getValue(),
+        language,
+        socketId: socketRef.current.id,
+      });
     } catch (error) {
       console.error("Error running code:", error);
       setConsoleOutput("Error running code: " + error.message);
@@ -211,7 +217,6 @@ export default function EditorPage() {
             Remote Code Execution Platform
           </span>
         </div>
-
         <ThemeToggle />
       </div>
 
@@ -229,16 +234,10 @@ export default function EditorPage() {
             </ul>
           </div>
           <div className="p-4 space-y-2">
-            <Button
-              onClick={copyRoomId}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
+            <Button onClick={copyRoomId} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
               <Copy className="mr-2 h-4 w-4" /> Copy Workspace ID
             </Button>
-            <Button
-              onClick={handleLeaveRoom}
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
-            >
+            <Button onClick={handleLeaveRoom} className="w-full bg-red-600 hover:bg-red-700 text-white">
               <LogOut className="mr-2 h-4 w-4" /> Leave Workspace
             </Button>
           </div>
@@ -247,10 +246,7 @@ export default function EditorPage() {
         <div className="flex-grow flex flex-col overflow-hidden">
           <div className="p-2 border-b bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <Select
-                value={language}
-                onValueChange={(value) => setLanguage(value)}
-              >
+              <Select value={language} onValueChange={setLanguage}>
                 <SelectTrigger className="w-[150px] bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-200 dark:border-gray-600">
                   <SelectValue placeholder="Select a language" />
                 </SelectTrigger>
@@ -260,32 +256,6 @@ export default function EditorPage() {
                   <SelectItem value="python">Python</SelectItem>
                 </SelectContent>
               </Select>
-
-              <div className="md:hidden flex items-center gap-2">
-                <Button
-                  onClick={copyRoomId}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center"
-                >
-                  <Copy className="h-4 w-4" />
-                  Room ID
-                </Button>
-                <Button
-                  onClick={handleLeaveRoom}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center text-red-600"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Leave
-                </Button>
-              </div>
-            </div>
-
-            <div className="md:hidden flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <Users className="h-4 w-4" />
-              <span>{members.length}</span>
             </div>
           </div>
 
@@ -297,8 +267,6 @@ export default function EditorPage() {
                   <div className="relative w-[160px]">
                     <Input
                       type="text"
-                      id="fileName"
-                      name="fileName"
                       value={fileName}
                       onChange={handleFileNameChange}
                       className="pr-[80px] bg-transparent border-0 border-b-2 rounded-none border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
@@ -306,14 +274,11 @@ export default function EditorPage() {
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <span className="text-gray-500 dark:text-gray-400">
-                        . {language}
+                        .{language}
                       </span>
                     </div>
                   </div>
-                  <Button
-                    onClick={handleFileDownload}
-                    className="text-gray-900 dark:text-white border-2 bg-transparent border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
+                  <Button onClick={handleFileDownload} className="text-gray-900 dark:text-white border-2 bg-transparent border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
@@ -323,19 +288,10 @@ export default function EditorPage() {
                     title="Reset Code"
                     onClick={resetCode}
                   />
-                  <div className="flex items-center space-x-2">
-                    <button
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                      onClick={goToCodeReviewer}
-                    >
-                      Code Reviewer
-                    </button>
-                  </div>
-                  <Button
-                    onClick={handleRunCode}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={isExecuting}
-                  >
+                  <Button onClick={goToCodeReviewer} className="bg-blue-500 hover:bg-blue-600 text-white">
+                    Code Reviewer
+                  </Button>
+                  <Button onClick={handleRunCode} className="bg-green-600 hover:bg-green-700 text-white" disabled={isExecuting}>
                     {isExecuting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

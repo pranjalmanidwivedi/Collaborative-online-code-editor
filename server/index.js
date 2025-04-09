@@ -77,7 +77,17 @@ io.on("connection", (socket) => {
     socket.on("join", ({ roomId, username }) => {
         userSocketMap[socket.id] = username;
         socket.join(roomId);
+
         const clients = getAllConnectedClients(roomId);
+
+        // ✅ Ask other clients in room to sync code for the new one
+        if (clients.length > 1) {
+            socket.broadcast.to(roomId).emit("request-code-sync", {
+                socketId: socket.id,
+            });
+        }
+
+        // Notify others of the new join
         clients.forEach(({ socketId }) => {
             io.to(socketId).emit("joined", {
                 clients,
@@ -87,11 +97,30 @@ io.on("connection", (socket) => {
         });
     });
 
+    // ✅ Respond to sync-code request
+    socket.on("sync-code", ({ code, socketId }) => {
+        io.to(socketId).emit("sync-code", {
+            code,
+        });
+    });
+
+    // Broadcast code changes to other clients
     socket.on("code-change", ({ roomId, code }) => {
         socket.in(roomId).emit("code-change", { code });
     });
 
-    socket.on('disconnecting', () => {
+    // For terminal input
+    socket.on("program-input", (input) => {
+        if (socket.dockerProcess) {
+            socket.dockerProcess.stdin.write(input + '\n');
+            socket.emit('program-output', {
+                output: "\n"
+            });
+        }
+    });
+
+    // Clean up on disconnect
+    socket.on("disconnecting", () => {
         const rooms = [...socket.rooms];
         rooms.forEach((roomId) => {
             socket.in(roomId).emit("disconnected", {
@@ -103,21 +132,13 @@ io.on("connection", (socket) => {
         socket.leave();
     });
 
-    socket.on("program-input", (input) => {
-        if (socket.dockerProcess) {
-            socket.dockerProcess.stdin.write(input + '\n');
-            socket.emit('program-output', {
-                output: "\n"
-            });
-        }
-    });
-
     socket.on("disconnect", () => {
         if (socket.dockerProcess) {
             socket.dockerProcess.kill();
         }
     });
 });
+
 
 const getAllConnectedClients = (roomId) => {
     return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map((socketId) => {
