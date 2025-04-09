@@ -5,7 +5,8 @@ export const initSocket = async() => {
         "force new connection": true,
         reconnectionAttempts: "infinity",
         timeout: 10000,
-        transports: ['websocket']
+        transports: ['websocket'],
+        withCredentials: true
     }
-    return io(import.meta.env.VITE_BACKEND_URL, option);
+    return io(import.meta.env.VITE_SOCKET_URL, option);
 }
