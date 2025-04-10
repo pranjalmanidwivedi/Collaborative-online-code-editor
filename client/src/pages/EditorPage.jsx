@@ -150,13 +150,30 @@ export default function EditorPage() {
   }, [socketRef.current]);
 
   const copyRoomId = () => {
-    navigator.clipboard.writeText(roomId);
-    toast({
-      title: "Room ID Copied",
-      description: "The room ID has been copied to your clipboard.",
-      variant: "default",
-    });
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(roomId).then(() => {
+        toast({
+          title: "Room ID Copied",
+          description: "The room ID has been copied to your clipboard.",
+          variant: "default",
+        });
+      }).catch((err) => {
+        console.error("Failed to copy: ", err);
+        toast({
+          title: "Copy Failed",
+          description: "Your browser does not support copying.",
+          variant: "destructive",
+        });
+      });
+    } else {
+      toast({
+        title: "Copy Failed",
+        description: "Clipboard API is not supported in this environment.",
+        variant: "destructive",
+      });
+    }
   };
+  
 
   const handleLeaveRoom = () => {
     navigate("/");
