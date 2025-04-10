@@ -1,11 +1,16 @@
-import { Compartment } from "@codemirror/state";
-import { EditorView, ViewPlugin } from "@codemirror/view";
-import { ySyncPlugin, yCursorPlugin, yUndoManagerPlugin } from "y-codemirror.next";
+import { ySyncPlugin, yCursorPlugin, yUndoManagerPlugin } from 'y-codemirror.next/yjs';
+import { keymap } from "@codemirror/view";
+import { undo, redo } from "y-codemirror.next/yjs";
 
-export function yCollab(yText, awareness, options = {}) {
+export function yCollab(yText, awareness) {
   return [
     ySyncPlugin(yText),
-    yCursorPlugin(awareness, options),
-    yUndoManagerPlugin(yText)
+    yCursorPlugin(awareness),
+    yUndoManagerPlugin(yText),
+    keymap.of([
+      { key: "Mod-z", run: undo },
+      { key: "Mod-y", run: redo },
+      { key: "Mod-Shift-z", run: redo },
+    ])
   ];
 }
