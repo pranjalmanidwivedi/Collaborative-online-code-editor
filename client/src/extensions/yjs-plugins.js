@@ -1,26 +1,25 @@
-// src/extensions/yjs-plugins.js
 import * as Y from 'yjs';
-import { ViewPlugin } from '@codemirror/view';
-import { keymap } from '@codemirror/view';
-import { undo, redo } from '@codemirror/commands';
+import { ViewPlugin } from "@codemirror/view";
 
 /**
- * Sync Yjs text with CodeMirror.
+ * Sync Y.Text with CodeMirror.
  */
 export function ySyncPlugin(yText) {
   return ViewPlugin.fromClass(class {
     constructor(view) {
       this.view = view;
-
       this._observer = () => {
-        const text = yText.toString();
+        const newText = yText.toString();
         const cursor = view.state.selection.main.head;
         view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: text },
-          selection: { anchor: cursor },
+          changes: {
+            from: 0,
+            to: view.state.doc.length,
+            insert: newText
+          },
+          selection: { anchor: cursor }
         });
       };
-
       yText.observe(this._observer);
     }
 
@@ -31,21 +30,15 @@ export function ySyncPlugin(yText) {
 }
 
 /**
- * Dummy cursor plugin (you can extend later).
+ * No-op cursor plugin (extend later)
  */
 export function yCursorPlugin() {
   return [];
 }
 
 /**
- * Simple undo manager.
+ * Undo plugin stub
  */
-export function yUndoManagerPlugin(yText) {
-  const undoManager = new Y.UndoManager(yText);
-
-  return keymap.of([
-    { key: 'Mod-z', run: () => undoManager.undo() || true },
-    { key: 'Mod-y', run: () => undoManager.redo() || true },
-    { key: 'Mod-Shift-z', run: () => undoManager.redo() || true }
-  ]);
+export function yUndoManagerPlugin() {
+  return [];
 }
