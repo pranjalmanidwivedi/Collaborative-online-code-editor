@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,6 @@ export default function EditorPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { roomId } = useParams();
 
   const [language, setLanguage] = useState("java");
   const [members, setMembers] = useState([]);
@@ -43,7 +42,11 @@ export default function EditorPage() {
   const [consoleOutput, setConsoleOutput] = useState("");
   const [fileName, setFileName] = useState("Main");
   const [isExecuting, setIsExecuting] = useState(false);
-  const [socketRef, setSocketRef] = useState(null);
+
+  const socketRef = useRef(null);
+  const codeRef = useRef(null);
+  const editorRef = useRef(null);
+  const { roomId } = useParams();
 
   const handleFileNameChange = (event) => {
     setFileName(event.target.value);
@@ -62,10 +65,10 @@ export default function EditorPage() {
       }
 
       setUsername(location.state.username);
-      const socket = await initSocket();
-      setSocketRef(socket);
+      socketRef.current = await initSocket();
 
       const handleError = (e) => {
+        console.log("connect_error", e);
         toast({
           title: "Socket Connection Error",
           description: e.message,
@@ -74,15 +77,15 @@ export default function EditorPage() {
         navigate("/create-room");
       };
 
-      socket.on("connect-error", handleError);
-      socket.on("connect_failed", handleError);
+      socketRef.current.on("connect-error", handleError);
+      socketRef.current.on("connect_failed", handleError);
 
-      socket.emit("join", {
+      socketRef.current.emit("join", {
         roomId,
         username: location.state.username,
       });
 
-      socket.on("joined", ({ clients, username }) => {
+      socketRef.current.on("joined", ({ clients, username }) => {
         if (username !== location.state.username) {
           toast({
             title: "New Member Joined",
@@ -93,7 +96,23 @@ export default function EditorPage() {
         setMembers(clients);
       });
 
-      socket.on("disconnected", ({ socketId, username }) => {
+      // ✅ When someone asks for code, send it
+      socketRef.current.on("request-code-sync", ({ socketId }) => {
+        socketRef.current.emit("sync-code", {
+          code: codeRef.current,
+          socketId,
+        });
+      });
+
+      // ✅ When I join, someone will send me the latest code
+      socketRef.current.on("sync-code", ({ code }) => {
+        if (code !== null && editorRef.current) {
+          codeRef.current = code;
+          editorRef.current.setValue(code);
+        }
+      });
+
+      socketRef.current.on("disconnected", ({ socketId, username }) => {
         toast({
           title: "Member Disconnected",
           description: `${username} disconnected from the room.`,
@@ -108,25 +127,27 @@ export default function EditorPage() {
     init();
 
     return () => {
-      if (socketRef) {
-        socketRef.disconnect();
-        socketRef.off("joined");
-        socketRef.off("disconnected");
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current.off("joined");
+        socketRef.current.off("disconnected");
+        socketRef.current.off("sync-code");
+        socketRef.current.off("request-code-sync");
       }
     };
   }, []);
 
   useEffect(() => {
-    if (socketRef) {
-      socketRef.on("program-output", ({ output }) => {
+    if (socketRef.current) {
+      socketRef.current.on("program-output", ({ output }) => {
         setConsoleOutput((prev) => prev + output);
       });
 
       return () => {
-        socketRef.off("program-output");
+        socketRef.current.off("program-output");
       };
     }
-  }, [socketRef]);
+  }, [socketRef.current]);
 
   const copyRoomId = () => {
     navigator.clipboard.writeText(roomId);
@@ -149,9 +170,9 @@ export default function EditorPage() {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       await axios.post(`${import.meta.env.VITE_BACKEND_URL}/compile`, {
-        roomId,
+        code: editorRef.current.getValue(),
         language,
-        socketId: socketRef.id,
+        socketId: socketRef.current.id,
       });
     } catch (error) {
       console.error("Error running code:", error);
@@ -162,29 +183,28 @@ export default function EditorPage() {
   };
 
   const handleConsoleInput = (input) => {
-    socketRef.emit("program-input", input);
+    socketRef.current.emit("program-input", input);
   };
 
   const handleFileDownload = () => {
-    // Skipping content-based download for now, unless you want to fetch Yjs text
-    toast({
-      title: "Download not supported",
-      description: "Downloading code is currently disabled in collaborative mode.",
-      variant: "destructive",
-    });
+    const code = editorRef.current.getValue();
+    const blob = new Blob([code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileName}.${language}`;
+    a.click();
   };
 
   const resetCode = () => {
-    toast({
-      title: "Feature not supported",
-      description: "Reset is disabled in collaborative mode. Clear manually.",
-      variant: "destructive",
-    });
+    editorRef.current.setValue("");
   };
 
   const goToCodeReviewer = () => {
     navigate("/code-reviewer", {
-      state: { roomId },
+      state: {
+        roomId,
+      },
     });
   };
 
@@ -287,7 +307,15 @@ export default function EditorPage() {
                 </div>
               </div>
               <div className="flex-grow overflow-hidden">
-                <CodeEditor roomId={roomId} />
+                <CodeEditor
+                  socketRef={socketRef}
+                  roomId={roomId}
+                  onCodeChange={(code) => {
+                    codeRef.current = code;
+                  }}
+                  language={language}
+                  editorRef={editorRef}
+                />
               </div>
             </div>
 
