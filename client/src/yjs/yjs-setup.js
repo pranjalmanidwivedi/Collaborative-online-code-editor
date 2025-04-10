@@ -1,15 +1,21 @@
+// src/yjs/yjs-setup.js
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 
-export const ydoc = new Y.Doc();
+export function createYjsProvider(roomId) {
+  const ydoc = new Y.Doc();
+  const provider = new WebsocketProvider(
+    'wss://demos.yjs.dev',
+    roomId,
+    ydoc
+  );
 
-export const provider = new WebsocketProvider(
-  'wss://demos.yjs.dev',  // or 'ws://localhost:1234' if running locally
-  'code-room-1',          // this should be dynamic if supporting multiple rooms
-  ydoc
-);
+  const yText = ydoc.getText('codemirror');
 
-export const yText = ydoc.getText('codemirror');
+  provider.awareness.setLocalStateField('user', {
+    name: 'Guest',
+    color: '#' + Math.floor(Math.random() * 16777215).toString(16),
+  });
 
-export const awareness = provider.awareness;
-
+  return { provider, yText, awareness: provider.awareness };
+}
