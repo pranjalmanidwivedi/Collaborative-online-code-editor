@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, basicSetup } from "@codemirror/basic-setup";
-import { yCollab } from "@/extensions/yCollab"; // ✅ Our manually created safe plugin
-import { createYjsProvider } from "@/yjs/yjs-setup"; // ✅ Your Yjs provider setup
+import { yCollab } from "@/extensions/yCollab";
+import { createYjsProvider } from "@/yjs/yjs-setup";
 
 export const CodeEditor = ({ roomId }) => {
   const editorContainerRef = useRef(null);
@@ -16,7 +16,7 @@ export const CodeEditor = ({ roomId }) => {
         doc: "",
         extensions: [
           basicSetup,
-          yCollab(yText, awareness),
+          ...yCollab(yText, awareness)
         ],
       }),
       parent: editorContainerRef.current,
