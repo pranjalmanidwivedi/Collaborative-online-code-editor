@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, basicSetup } from "@codemirror/basic-setup";
-import { yCollab } from "y-codemirror.next";
+import { yCollab } from "../extensions/yCollab";
 import { createYjsProvider } from "../yjs/yjs-setup";
 
 export const CodeEditor = ({ roomId }) => {
