@@ -135,7 +135,7 @@ export default function EditorPage() {
         socketRef.current.off("request-code-sync");
       }
     };
-  }, []);
+  }, [location.state, roomId, navigate, toast]);
 
   useEffect(() => {
     if (socketRef.current) {
@@ -147,7 +147,7 @@ export default function EditorPage() {
         socketRef.current.off("program-output");
       };
     }
-  }, [socketRef.current]);
+  }, );
 
   const copyRoomId = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
