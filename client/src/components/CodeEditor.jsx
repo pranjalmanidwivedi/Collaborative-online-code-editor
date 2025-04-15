@@ -17,31 +17,10 @@ int main() {
 }`
 };
 
-// Debounce helper
-const debounce = (fn, delay) => {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
-};
-
 export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRef }) => {
   const codeRef = useRef(null);
   const isTyping = useRef(false);
   const { theme } = useTheme();
-
-  // ✅ Create debounced emit once using useRef
-  const debouncedEmitChange = useRef(
-    debounce((value) => {
-      if (socketRef.current) {
-        socketRef.current.emit("code-change", {
-          roomId,
-          code: value,
-        });
-      }
-    }, 200)
-  ).current;
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -54,41 +33,39 @@ export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRe
     }
   };
 
-  // ✅ Proper socket event binding
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
+    if (socketRef.current) {
+      socketRef.current.on("code-change", ({ code }) => {
+        if (code !== null && !isTyping.current && editorRef.current) {
+          const editor = editorRef.current;
+          const currentValue = editor.getValue();
+          if (currentValue !== code) {
+            const position = editor.getPosition();
+            const range = editor.getModel().getFullModelRange();
 
-    const handleCodeChange = ({ code }) => {
-      if (code !== null && !isTyping.current && editorRef.current) {
-        const editor = editorRef.current;
-        const currentValue = editor.getValue();
-        if (currentValue !== code) {
-          const position = editor.getPosition();
-          const range = editor.getModel().getFullModelRange();
+            editor.executeEdits(null, [
+              {
+                range,
+                text: code,
+                forceMoveMarkers: true,
+              },
+            ]);
 
-          editor.executeEdits(null, [
-            {
-              range,
-              text: code,
-              forceMoveMarkers: true,
-            },
-          ]);
+            editor.pushUndoStop();
+            editor.setPosition(position);
+          }
 
-          editor.pushUndoStop();
-          editor.setPosition(position);
+          codeRef.current = code;
         }
-
-        codeRef.current = code;
-      }
-    };
-
-    socket.on("code-change", handleCodeChange);
+      });
+    }
 
     return () => {
-      socket.off("code-change", handleCodeChange);
+      if (socketRef.current) {
+        socketRef.current.off("code-change");
+      }
     };
-  }, [socketRef, roomId]);
+  }, [socketRef.current]);
 
   const handleEditorChange = (value) => {
     if (!value) return;
@@ -97,11 +74,16 @@ export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRe
     codeRef.current = value;
     onCodeChange(value);
 
-    debouncedEmitChange(value); // ✅ Use debounced emit
+    if (socketRef.current) {
+      socketRef.current.emit("code-change", {
+        roomId,
+        code: value,
+      });
+    }
 
     setTimeout(() => {
       isTyping.current = false;
-    }, 100);
+    }, 10);
   };
 
   useEffect(() => {
