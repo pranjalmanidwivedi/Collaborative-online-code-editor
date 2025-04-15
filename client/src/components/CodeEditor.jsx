@@ -17,10 +17,29 @@ int main() {
 }`
 };
 
+// Debounce helper
+const debounce = (fn, delay) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+};
+
 export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRef }) => {
   const codeRef = useRef(null);
   const isTyping = useRef(false);
   const { theme } = useTheme();
+
+  // Debounced socket emit
+  const debouncedEmitChange = debounce((value) => {
+    if (socketRef.current) {
+      socketRef.current.emit("code-change", {
+        roomId,
+        code: value,
+      });
+    }
+  }, 200);
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -74,16 +93,12 @@ export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRe
     codeRef.current = value;
     onCodeChange(value);
 
-    if (socketRef.current) {
-      socketRef.current.emit("code-change", {
-        roomId,
-        code: value,
-      });
-    }
+    debouncedEmitChange(value); // ✅ Use debounced emit here
 
+    // Give enough buffer time to ignore remote updates
     setTimeout(() => {
       isTyping.current = false;
-    }, 10);
+    }, 100);
   };
 
   useEffect(() => {
@@ -91,7 +106,7 @@ export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRe
       codeRef.current = defaultCode[language];
       editorRef.current.setValue(defaultCode[language]);
     }
-  }, [language]);
+  }, [language, editorRef]);
 
   useEffect(() => {
     if (editorRef.current) {
