@@ -20,7 +20,7 @@ const HOST = "0.0.0.0";
 const app = express();
 app.use(express.json());
 app.use(cors({
-    origin: "*",  // Allow all origins (for testing)
+    origin: "https://collaborative-online-code-editor.vercel.app/",  // Allow all origins (for testing)
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
     credentials: true,
@@ -43,7 +43,7 @@ app.use("/ai", aiRoutes);
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-      origin: "*", // Or specify the exact origin
+      origin: "https://collaborative-online-code-editor.vercel.app/", // Or specify the exact origin
       methods: ["GET", "POST"],
       credentials: true
     }
