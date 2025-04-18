@@ -46,7 +46,7 @@ function App() {
     
     <main className="h-screen w-screen p-6 flex gap-4">
       
-      {/* Left Side - Code Editor */}
+      {/* Left Side - Code Editor view */}
       <div className="left-side h-full w-1/2 bg-black rounded-lg relative flex flex-col">
         {/* Scrollable Editor Wrapper */}
         <div ref={containerRef} className="h-[90%] overflow-auto p-2 scrollbar-hidden">
