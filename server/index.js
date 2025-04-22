@@ -11,6 +11,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { WebSocketServer } from 'ws';
 import { setupWSConnection } from 'y-websocket/bin/utils.js';
+import { createProxyMiddleware } from 'http-proxy-middleware'; // ✅ ADDED
 import aiRoutes from './src/routes/ai.routes.js';
 
 dotenv.config();
@@ -19,19 +20,13 @@ const PORT = process.env.PORT || 3005;
 const HOST = "0.0.0.0";
 
 const app = express();
-const server = http.createServer(app); // 👈 Use this for both express & Yjs
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
     credentials: true,
   }
-});
-
-// Yjs WebSocket server on same port (Render-safe)
-const wss = new WebSocketServer({ server }); // ✅ IMPORTANT: No second server or port
-wss.on("connection", (conn, req) => {
-  setupWSConnection(conn, req);
 });
 
 const TEMP_DIR = path.join(os.tmpdir(), 'code_bridge_temp');
@@ -49,17 +44,28 @@ app.use(limiter);
 
 app.get("/", (req, res) => res.send("Hello World!"));
 
+// ✅ PROXY MIDDLEWARE FOR YJS WEBSOCKET
+app.use('/yjs', createProxyMiddleware({
+  target: 'http://localhost:1240',
+  ws: true,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/yjs': '', // strips '/yjs' from URL
+  },
+}));
+
+fs.readdirSync(TEMP_DIR).forEach(file => {
+  const filePath = path.join(TEMP_DIR, file);
+  fs.unlinkSync(filePath);
+});
+
 // ------------------ Socket.IO Logic ------------------
 io.on("connection", (socket) => {
   socket.on("join", ({ roomId, username }) => {
     userSocketMap[socket.id] = username;
     socket.join(roomId);
 
-    const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []).map((socketId) => ({
-      socketId,
-      username: userSocketMap[socketId]
-    }));
-
+    const clients = getAllConnectedClients(roomId);
     if (clients.length > 1) {
       socket.broadcast.to(roomId).emit("request-code-sync", { socketId: socket.id });
     }
@@ -102,7 +108,14 @@ io.on("connection", (socket) => {
   });
 });
 
-// ------------------ Code Compilation ------------------
+const getAllConnectedClients = (roomId) => {
+  return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map((socketId) => ({
+    socketId,
+    username: userSocketMap[socketId]
+  }));
+};
+
+// ------------------ Code Compiler ------------------
 app.post('/compile', async (req, res) => {
   try {
     let { code, language, socketId } = req.body;
@@ -187,7 +200,19 @@ app.post('/compile', async (req, res) => {
   }
 });
 
-// ------------------ Start Server ------------------
+// ------------------ Yjs WebSocket Server (Port 1240) ------------------
+const yjsServer = http.createServer();
+const yjsWSS = new WebSocketServer({ server: yjsServer });
+
+yjsWSS.on("connection", (conn, req) => {
+  setupWSConnection(conn, req);
+});
+
+yjsServer.listen(1240, () => {
+  console.log("✅ Yjs WebSocket server running at ws://localhost:1240");
+});
+
+// ------------------ Start Main Server ------------------
 server.listen(PORT, HOST, () => {
-  console.log(`🚀 Server ready at http://${HOST}:${PORT}`);
+  console.log(`🚀 Main app running at http://${HOST}:${PORT}`);
 });

@@ -34,7 +34,7 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
     ydocRef.current = ydoc;
 
     const provider = new WebsocketProvider(
-      "wss://collaborative-online-code-editor-1.onrender.com",
+      "wss://collaborative-online-code-editor-1.onrender.com/yjs",
       roomId,
       ydoc
     );
