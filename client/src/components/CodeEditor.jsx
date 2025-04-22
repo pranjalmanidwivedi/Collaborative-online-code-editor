@@ -33,7 +33,12 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
 
-    const provider = new WebsocketProvider("ws://localhost:1240", roomId, ydoc);
+    const provider = new WebsocketProvider(
+      "wss://collaborative-online-code-editor-1.onrender.com/yjs",
+      roomId,
+      ydoc
+    );
+    
     providerRef.current = provider;
 
     const yText = ydoc.getText("monaco");

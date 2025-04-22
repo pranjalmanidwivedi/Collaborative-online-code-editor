@@ -200,7 +200,7 @@ yjsWSS.on("connection", (conn, req) => {
   setupWSConnection(conn, req);
 });
 
-yjsServer.listen(1234, () => {
+yjsServer.listen(1240, () => {
   console.log("✅ Yjs WebSocket server running at ws://localhost:1240");
 });
 
