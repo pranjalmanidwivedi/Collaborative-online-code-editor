@@ -54,9 +54,10 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^10.0.0",
     "vite-plugin-monaco-editor": "^1.1.0",
+    "y-monaco": "^0.1.6",
     "y-protocols": "^1.0.6",
     "y-websocket": "^3.0.0",
-    "yjs": "^13.6.24"
+    "yjs": "^13.6.26"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",

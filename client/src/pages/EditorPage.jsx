@@ -147,24 +147,27 @@ export default function EditorPage() {
         socketRef.current.off("program-output");
       };
     }
-  }, );
+  });
 
   const copyRoomId = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(roomId).then(() => {
-        toast({
-          title: "Room ID Copied",
-          description: "The room ID has been copied to your clipboard.",
-          variant: "default",
+      navigator.clipboard
+        .writeText(roomId)
+        .then(() => {
+          toast({
+            title: "Room ID Copied",
+            description: "The room ID has been copied to your clipboard.",
+            variant: "default",
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to copy: ", err);
+          toast({
+            title: "Copy Failed",
+            description: "Your browser does not support copying.",
+            variant: "destructive",
+          });
         });
-      }).catch((err) => {
-        console.error("Failed to copy: ", err);
-        toast({
-          title: "Copy Failed",
-          description: "Your browser does not support copying.",
-          variant: "destructive",
-        });
-      });
     } else {
       toast({
         title: "Copy Failed",
@@ -173,7 +176,6 @@ export default function EditorPage() {
       });
     }
   };
-  
 
   const handleLeaveRoom = () => {
     navigate("/");
@@ -251,10 +253,16 @@ export default function EditorPage() {
             </ul>
           </div>
           <div className="p-4 space-y-2">
-            <Button onClick={copyRoomId} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              onClick={copyRoomId}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Copy className="mr-2 h-4 w-4" /> Copy Workspace ID
             </Button>
-            <Button onClick={handleLeaveRoom} className="w-full bg-red-600 hover:bg-red-700 text-white">
+            <Button
+              onClick={handleLeaveRoom}
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+            >
               <LogOut className="mr-2 h-4 w-4" /> Leave Workspace
             </Button>
           </div>
@@ -295,7 +303,10 @@ export default function EditorPage() {
                       </span>
                     </div>
                   </div>
-                  <Button onClick={handleFileDownload} className="text-gray-900 dark:text-white border-2 bg-transparent border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <Button
+                    onClick={handleFileDownload}
+                    className="text-gray-900 dark:text-white border-2 bg-transparent border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
@@ -305,10 +316,17 @@ export default function EditorPage() {
                     title="Reset Code"
                     onClick={resetCode}
                   />
-                  <Button onClick={goToCodeReviewer} className="bg-blue-500 hover:bg-blue-600 text-white">
+                  <Button
+                    onClick={goToCodeReviewer}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
                     Code Reviewer
                   </Button>
-                  <Button onClick={handleRunCode} className="bg-green-600 hover:bg-green-700 text-white" disabled={isExecuting}>
+                  <Button
+                    onClick={handleRunCode}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={isExecuting}
+                  >
                     {isExecuting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -325,11 +343,7 @@ export default function EditorPage() {
               </div>
               <div className="flex-grow overflow-hidden">
                 <CodeEditor
-                  socketRef={socketRef}
                   roomId={roomId}
-                  onCodeChange={(code) => {
-                    codeRef.current = code;
-                  }}
                   language={language}
                   editorRef={editorRef}
                 />

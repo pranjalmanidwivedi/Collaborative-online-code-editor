@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { MonacoBinding } from "y-monaco";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const defaultCode = {
@@ -17,90 +20,39 @@ int main() {
 }`
 };
 
-export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRef }) => {
-  const codeRef = useRef(null);
-  const isTyping = useRef(false);
+export const CodeEditor = ({ roomId, language, editorRef }) => {
   const { theme } = useTheme();
+  const ydocRef = useRef(null);
+  const providerRef = useRef(null);
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
+    const model = editor.getModel();
+
+    // Init Yjs doc & provider
+    const ydoc = new Y.Doc();
+    ydocRef.current = ydoc;
+
+    const provider = new WebsocketProvider("ws://localhost:1240", roomId, ydoc);
+    providerRef.current = provider;
+
+    const yText = ydoc.getText("monaco");
+
+    if (yText.length === 0) {
+      yText.insert(0, defaultCode[language]);
+    }
+
+    new MonacoBinding(yText, model, new Set([editor]), provider.awareness);
 
     monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'light');
-
-    if (!codeRef.current) {
-      codeRef.current = defaultCode[language];
-      editor.setValue(defaultCode[language]);
-    }
   };
 
   useEffect(() => {
-    if (socketRef.current) {
-      socketRef.current.on("code-change", ({ code }) => {
-        if (code !== null && !isTyping.current && editorRef.current) {
-          const editor = editorRef.current;
-          const currentValue = editor.getValue();
-          if (currentValue !== code) {
-            const position = editor.getPosition();
-            const range = editor.getModel().getFullModelRange();
-
-            editor.executeEdits(null, [
-              {
-                range,
-                text: code,
-                forceMoveMarkers: true,
-              },
-            ]);
-
-            editor.pushUndoStop();
-            editor.setPosition(position);
-          }
-
-          codeRef.current = code;
-        }
-      });
-    }
-
     return () => {
-      if (socketRef.current) {
-        socketRef.current.off("code-change");
-      }
+      providerRef.current?.destroy();
+      ydocRef.current?.destroy();
     };
-  }, [socketRef.current]);
-
-  const handleEditorChange = (value) => {
-    if (!value) return;
-
-    isTyping.current = true;
-    codeRef.current = value;
-    onCodeChange(value);
-
-    if (socketRef.current) {
-      socketRef.current.emit("code-change", {
-        roomId,
-        code: value,
-      });
-    }
-
-    setTimeout(() => {
-      isTyping.current = false;
-    }, 10);
-  };
-
-  useEffect(() => {
-    if (editorRef.current) {
-      codeRef.current = defaultCode[language];
-      editorRef.current.setValue(defaultCode[language]);
-    }
-  }, [language]);
-
-  useEffect(() => {
-    if (editorRef.current) {
-      const monaco = window.monaco;
-      if (monaco) {
-        monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'light');
-      }
-    }
-  }, [theme]);
+  }, []);
 
   return (
     <div className="h-full">
@@ -109,8 +61,6 @@ export const CodeEditor = ({ socketRef, roomId, onCodeChange, language, editorRe
         width="100%"
         language={language}
         theme={theme === 'dark' ? 'vs-dark' : 'light'}
-        value={codeRef.current || defaultCode[language]}
-        onChange={handleEditorChange}
         onMount={handleEditorDidMount}
         options={{
           minimap: { enabled: false },
