@@ -21,6 +21,7 @@
     "fs": "^0.0.1-security",
     "helmet": "^8.1.0",
     "http": "^0.0.1-security",
+    "http-proxy-middleware": "^3.0.5",
     "nodemon": "^3.1.7",
     "os": "^0.1.2",
     "path": "^0.12.7",
