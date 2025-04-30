@@ -197,7 +197,7 @@ const yjsWSS = new WebSocketServer({ noServer: true });
 server.on('upgrade', (request, socket, head) => {
   const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
-  if (pathname.startsWith('/yjs')) {
+  if (pathname === '/yjs') {
     yjsWSS.handleUpgrade(request, socket, head, (ws) => {
       setupWSConnection(ws, request);
     });
