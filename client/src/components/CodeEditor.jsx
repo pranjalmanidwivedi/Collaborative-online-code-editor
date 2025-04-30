@@ -34,7 +34,7 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
     ydocRef.current = ydoc;
 
     const provider = new WebsocketProvider(
-      "ws://localhost:1240",
+      `${import.meta.env.VITE_YJS_WEBSOCKET_URL}`,
       roomId,
       ydoc
     );
