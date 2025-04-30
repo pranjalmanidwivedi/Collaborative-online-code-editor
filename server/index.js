@@ -10,12 +10,11 @@ import os from 'os';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { WebSocketServer } from 'ws';
-import { setupWSConnection } from 'y-websocket/bin/utils.js'; // Yjs WebSocket support
+import { setupWSConnection } from 'y-websocket/bin/utils.js';
 import aiRoutes from './src/routes/ai.routes.js';
 
 dotenv.config();
 
-// ------------------ Express + Socket.IO App ------------------
 const PORT = process.env.PORT || 3005;
 const HOST = "0.0.0.0";
 
@@ -23,10 +22,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
+    origin: '*',
+    methods: ['GET', 'POST'],
     credentials: true,
-  }
+  },
 });
 
 const TEMP_DIR = path.join(os.tmpdir(), 'code_bridge_temp');
@@ -36,7 +35,7 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 // Middleware
 app.use(express.json());
-app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type"], credentials: true }));
+app.use(cors({ origin: '*', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type'], credentials: true }));
 app.use(helmet());
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
@@ -44,14 +43,15 @@ app.use(limiter);
 app.use("/ai", aiRoutes);
 
 app.get("/", (req, res) => res.send("Hello World!"));
+app.get("/health", (req, res) => res.send("OK"));
 
 // Clean temp files on boot
-fs.readdirSync(TEMP_DIR).forEach(file => {
+fs.readdirSync(TEMP_DIR).forEach((file) => {
   const filePath = path.join(TEMP_DIR, file);
   fs.unlinkSync(filePath);
 });
 
-// ------------------ WebSocket Collaboration ------------------
+// ------------------ Socket.IO Collaboration ------------------
 io.on("connection", (socket) => {
   socket.on("join", ({ roomId, username }) => {
     userSocketMap[socket.id] = username;
@@ -87,7 +87,7 @@ io.on("connection", (socket) => {
     rooms.forEach((roomId) => {
       socket.in(roomId).emit("disconnected", {
         socketId: socket.id,
-        username: userSocketMap[socket.id]
+        username: userSocketMap[socket.id],
       });
     });
     delete userSocketMap[socket.id];
@@ -103,7 +103,7 @@ io.on("connection", (socket) => {
 const getAllConnectedClients = (roomId) => {
   return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map((socketId) => ({
     socketId,
-    username: userSocketMap[socketId]
+    username: userSocketMap[socketId],
   }));
 };
 
@@ -140,10 +140,8 @@ app.post('/compile', async (req, res) => {
       '-i',
       '--rm',
       '--network=none',
-      '-v',
-      `${uniqueTempDir}:/code`,
-      '--workdir',
-      '/code',
+      '-v', `${uniqueTempDir}:/code`,
+      '--workdir', '/code',
       dockerImage
     ]);
 
@@ -172,7 +170,7 @@ app.post('/compile', async (req, res) => {
       if (socket) socket.emit('program-output', { output: data.toString() });
     });
 
-    dockerProcess.on('exit', (code) => {
+    dockerProcess.on('exit', () => {
       clearTimeout(timeout);
       if (socket) {
         socket.emit('program-output', {
@@ -192,19 +190,24 @@ app.post('/compile', async (req, res) => {
   }
 });
 
-// ------------------ Yjs WebSocket Server ------------------
-const yjsServer = http.createServer();
-const yjsWSS = new WebSocketServer({ server: yjsServer });
+// ------------------ Yjs WebSocket on Shared Server ------------------
+const yjsWSS = new WebSocketServer({ noServer: true });
 
-yjsWSS.on("connection", (conn, req) => {
-  setupWSConnection(conn, req);
+
+server.on('upgrade', (request, socket, head) => {
+  const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+  if (pathname.startsWith('/yjs')) {
+    yjsWSS.handleUpgrade(request, socket, head, (ws) => {
+      setupWSConnection(ws, request);
+    });
+  }
 });
 
-yjsServer.listen(1240, () => {
-  console.log("✅ Yjs WebSocket server running at ws://localhost:1240");
-});
 
-// ------------------ Start Main Server ------------------
+console.log("✅ Yjs WebSocket running on main server");
+
+// ------------------ Start Server ------------------
 server.listen(PORT, HOST, () => {
   console.log(`🚀 Main app running at http://${HOST}:${PORT}`);
 });
