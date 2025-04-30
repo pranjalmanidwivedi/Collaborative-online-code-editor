@@ -10,12 +10,12 @@ import os from 'os';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { WebSocketServer } from 'ws';
-import { setupWSConnection } from 'y-websocket/bin/utils.js';
-import { createProxyMiddleware } from 'http-proxy-middleware'; // ✅ ADDED
+import { setupWSConnection } from 'y-websocket/bin/utils.js'; // Yjs WebSocket support
 import aiRoutes from './src/routes/ai.routes.js';
 
 dotenv.config();
 
+// ------------------ Express + Socket.IO App ------------------
 const PORT = process.env.PORT || 3005;
 const HOST = "0.0.0.0";
 
@@ -34,32 +34,24 @@ const userSocketMap = {};
 
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
+// Middleware
 app.use(express.json());
 app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type"], credentials: true }));
 app.use(helmet());
-app.use("/ai", aiRoutes);
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use(limiter);
+app.use("/ai", aiRoutes);
 
 app.get("/", (req, res) => res.send("Hello World!"));
 
-// ✅ PROXY MIDDLEWARE FOR YJS WEBSOCKET
-app.use('/yjs', createProxyMiddleware({
-  target: 'http://localhost:1240',
-  ws: true,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/yjs': '', // strips '/yjs' from URL
-  },
-}));
-
+// Clean temp files on boot
 fs.readdirSync(TEMP_DIR).forEach(file => {
   const filePath = path.join(TEMP_DIR, file);
   fs.unlinkSync(filePath);
 });
 
-// ------------------ Socket.IO Logic ------------------
+// ------------------ WebSocket Collaboration ------------------
 io.on("connection", (socket) => {
   socket.on("join", ({ roomId, username }) => {
     userSocketMap[socket.id] = username;
@@ -115,7 +107,7 @@ const getAllConnectedClients = (roomId) => {
   }));
 };
 
-// ------------------ Code Compiler ------------------
+// ------------------ Code Compiler Endpoint ------------------
 app.post('/compile', async (req, res) => {
   try {
     let { code, language, socketId } = req.body;
@@ -200,7 +192,7 @@ app.post('/compile', async (req, res) => {
   }
 });
 
-// ------------------ Yjs WebSocket Server (Port 1240) ------------------
+// ------------------ Yjs WebSocket Server ------------------
 const yjsServer = http.createServer();
 const yjsWSS = new WebSocketServer({ server: yjsServer });
 
