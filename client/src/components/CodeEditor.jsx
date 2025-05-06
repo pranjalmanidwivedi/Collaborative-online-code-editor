@@ -38,6 +38,10 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
       roomId,
       ydoc
     );
+
+    console.log("YJS WS URL:", import.meta.env.VITE_YJS_WEBSOCKET_URL);
+console.log("roomId:", roomId);
+
     
     providerRef.current = provider;
 
