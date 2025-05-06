@@ -28,40 +28,35 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     const model = editor.getModel();
-
-    // Init Yjs doc & provider
+  
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
-
+  
     const provider = new WebsocketProvider(
-      `${import.meta.env.VITE_YJS_WEBSOCKET_URL}`,
+      import.meta.env.VITE_YJS_WEBSOCKET_URL,
       roomId,
       ydoc
     );
-
-    console.log("YJS WS URL:", import.meta.env.VITE_YJS_WEBSOCKET_URL);
-console.log("roomId:", roomId);
-
-    
     providerRef.current = provider;
-
+  
     const yText = ydoc.getText("monaco");
-
-    if (yText.length === 0) {
-      yText.insert(0, defaultCode[language]);
-    }
-
+  
+    // Only insert boilerplate on sync if content is empty
+    
+  
     new MonacoBinding(yText, model, new Set([editor]), provider.awareness);
-
+  
     monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'light');
   };
+  
 
   useEffect(() => {
-    return () => {
-      providerRef.current?.destroy();
-      ydocRef.current?.destroy();
-    };
-  }, []);
+    if (editorRef.current) {
+      ydocRef.current = defaultCode[language];
+      editorRef.current.setValue(defaultCode[language]);
+    }
+  }, [language]);
+  
 
   return (
     <div className="h-full">
