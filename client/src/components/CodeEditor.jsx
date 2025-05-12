@@ -26,28 +26,62 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
   const providerRef = useRef(null);
 
   const handleEditorDidMount = (editor, monaco) => {
-    editorRef.current = editor;
-    const model = editor.getModel();
-  
-    const ydoc = new Y.Doc();
-    ydocRef.current = ydoc;
-  
-    const provider = new WebsocketProvider(
-      import.meta.env.VITE_YJS_WEBSOCKET_URL,
-      roomId,
-      ydoc
-    );
-    providerRef.current = provider;
-  
-    const yText = ydoc.getText("monaco");
-  
-    // Only insert boilerplate on sync if content is empty
-    
-  
-    new MonacoBinding(yText, model, new Set([editor]), provider.awareness);
-  
-    monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'light');
-  };
+  editorRef.current = editor;
+
+  const ydoc = new Y.Doc();
+  ydocRef.current = ydoc;
+
+  const provider = new WebsocketProvider(
+    import.meta.env.VITE_YJS_WEBSOCKET_URL,
+    roomId,
+    ydoc
+  );
+  providerRef.current = provider;
+
+  const yText = ydoc.getText("monaco");
+  const yMeta = ydoc.getMap("meta");
+
+  // Use a consistent Monaco model with a shared URI
+  const uri = monaco.Uri.parse("file:///main." + language); // based on selected language
+  let model = monaco.editor.getModel(uri);
+
+  if (!model) {
+    model = monaco.editor.createModel("", language, uri);
+  }
+
+  editor.setModel(model); // ensure all users use the same model
+
+  // Insert boilerplate only once when synced and content is empty
+  provider.on("sync", (isSynced) => {
+    if (isSynced && yText.toString().trim().length === 0) {
+      yText.insert(0, defaultCode[language] || "");
+      yMeta.set("language", language);
+    }
+  });
+
+  // Listen to language change and overwrite code when changed
+  yMeta.observe(() => {
+    const newLang = yMeta.get("language");
+    if (newLang && defaultCode[newLang]) {
+      // Switch model and update editor content
+      const newUri = monaco.Uri.parse("file:///main." + newLang);
+      let newModel = monaco.editor.getModel(newUri);
+      if (!newModel) {
+        newModel = monaco.editor.createModel("", newLang, newUri);
+      }
+      editor.setModel(newModel);
+      yText.delete(0, yText.length);
+      yText.insert(0, defaultCode[newLang]);
+    }
+  });
+
+  // Bind Monaco editor with Yjs
+  new MonacoBinding(yText, model, new Set([editor]), provider.awareness);
+
+  // Set the editor theme
+  monaco.editor.setTheme(theme === "dark" ? "vs-dark" : "light");
+};
+
   
 
   useEffect(() => {
@@ -55,7 +89,7 @@ export const CodeEditor = ({ roomId, language, editorRef }) => {
       ydocRef.current = defaultCode[language];
       editorRef.current.setValue(defaultCode[language]);
     }
-  }, [language]);
+  }, [language, editorRef]);
   
 
   return (
